@@ -1,3 +1,15 @@
+"""
+MINORS Assessment Tool
+A Streamlit web application for conducting Methodological Index for Non-Randomized Studies assessments
+
+Developer: Muhammad Nabeel Saddique
+Institution: King Edward Medical University, Lahore, Pakistan
+Organization: Nibras Research Academy
+
+Citation: Slim K, et al. Methodological index for non-randomized studies (MINORS): 
+development and validation of a new instrument. ANZ J Surg. 2003;73:712-716.
+"""
+
 import streamlit as st
 import pandas as pd
 import io
@@ -46,6 +58,13 @@ st.markdown("""
     padding: 1rem;
     border-radius: 0.5rem;
     margin: 1rem 0;
+}
+.footer {
+    text-align: center;
+    color: #666;
+    margin-top: 2rem;
+    padding: 1rem;
+    border-top: 1px solid #eee;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -142,7 +161,7 @@ MINORS_CRITERIA = {
 # Sidebar options
 option = st.sidebar.selectbox(
     "Choose Action:",
-    ["New Assessment", "View All Studies", "Export Data"]
+    ["New Assessment", "View All Studies", "Export Data", "About MINORS"]
 )
 
 def create_download_link(df, filename, file_format="excel"):
@@ -160,6 +179,15 @@ def create_download_link(df, filename, file_format="excel"):
         href = f'<a href="data:file/csv;base64,{b64}" download="{filename}.csv">📥 Download CSV File</a>'
     
     return href
+
+def calculate_quality_rating(percentage):
+    """Calculate quality rating based on percentage score"""
+    if percentage > 75:
+        return "High Quality", "green"
+    elif percentage >= 50:
+        return "Moderate Quality", "orange"
+    else:
+        return "Low Quality", "red"
 
 if option == "New Assessment":
     st.header("📝 New MINORS Assessment")
@@ -214,7 +242,7 @@ if option == "New Assessment":
                 with col1:
                     score_options = ["0 - Not reported", "1 - Reported but inadequate", "2 - Reported and adequate"]
                     scores[i] = st.radio(f"Score for item {i}:", options=[0, 1, 2], 
-                                       format_func=lambda x: score_options[x], 
+                                       format_func=lambda x, opts=score_options: opts[x], 
                                        key=f"score_{i}")
                 st.markdown('</div>', unsafe_allow_html=True)
             
@@ -231,7 +259,7 @@ if option == "New Assessment":
                     with col1:
                         score_options = ["0 - Not reported", "1 - Reported but inadequate", "2 - Reported and adequate"]
                         scores[i] = st.radio(f"Score for item {i}:", options=[0, 1, 2], 
-                                           format_func=lambda x: score_options[x], 
+                                           format_func=lambda x, opts=score_options: opts[x], 
                                            key=f"score_{i}")
                     st.markdown('</div>', unsafe_allow_html=True)
             
@@ -244,15 +272,7 @@ if option == "New Assessment":
                 percentage = round((total_score / max_score) * 100, 1)
                 
                 # Quality assessment
-                if percentage > 75:
-                    quality = "High Quality"
-                    quality_color = "green"
-                elif percentage >= 50:
-                    quality = "Moderate Quality"
-                    quality_color = "orange"
-                else:
-                    quality = "Low Quality"
-                    quality_color = "red"
+                quality, quality_color = calculate_quality_rating(percentage)
                 
                 # Display results
                 st.markdown(f'<div class="score-summary">', unsafe_allow_html=True)
@@ -391,29 +411,87 @@ elif option == "Export Data":
         comparative_studies = len([s for s in st.session_state.studies_data if s['study_type'] == 'Comparative'])
         non_comparative_studies = total_studies - comparative_studies
         
-        avg_score_comp = sum([s['percentage'] for s in st.session_state.studies_data if s['study_type'] == 'Comparative']) / max(comparative_studies, 1)
-        avg_score_non_comp = sum([s['percentage'] for s in st.session_state.studies_data if s['study_type'] == 'Non-comparative']) / max(non_comparative_studies, 1)
+        if total_studies > 0:
+            avg_score_comp = sum([s['percentage'] for s in st.session_state.studies_data if s['study_type'] == 'Comparative']) / max(comparative_studies, 1)
+            avg_score_non_comp = sum([s['percentage'] for s in st.session_state.studies_data if s['study_type'] == 'Non-comparative']) / max(non_comparative_studies, 1)
+            overall_avg = (avg_score_comp * comparative_studies + avg_score_non_comp * non_comparative_studies) / total_studies
+        else:
+            overall_avg = 0
         
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Total Studies", total_studies)
         col2.metric("Comparative Studies", comparative_studies)
         col3.metric("Non-comparative Studies", non_comparative_studies)
-        col4.metric("Overall Avg Quality", f"{round((avg_score_comp * comparative_studies + avg_score_non_comp * non_comparative_studies) / total_studies, 1)}%")
+        col4.metric("Overall Avg Quality", f"{round(overall_avg, 1)}%")
         
     else:
         st.info("No data to export. Please complete some assessments first.")
 
+elif option == "About MINORS":
+    st.header("📖 About MINORS")
+    
+    st.markdown("""
+    ### Methodological Index for Non-Randomized Studies (MINORS)
+    
+    The MINORS instrument is a validated tool designed to assess the methodological quality of non-randomized studies, 
+    both comparative and non-comparative. It was developed by Slim et al. and published in the ANZ Journal of Surgery in 2003.
+    
+    #### 🎯 Purpose
+    - Evaluate methodological quality of observational studies
+    - Support systematic reviews and meta-analyses
+    - Assist in manuscript review and publication decisions
+    - Enhance evidence-based medicine practices
+    
+    #### 📊 Validation
+    - **Inter-reviewer agreement:** κ > 0.4 (satisfactory for all items)
+    - **Test-retest reliability:** High correlation after 2-month interval
+    - **Internal consistency:** Cronbach's α = 0.73 (good)
+    - **External validity:** Validated against randomized controlled trials
+    
+    #### 🔍 Assessment Criteria
+    
+    **Items 1-8: All Studies**
+    1. Clearly stated aim
+    2. Inclusion of consecutive patients
+    3. Prospective collection of data
+    4. Endpoints appropriate to study aim
+    5. Unbiased assessment of endpoints
+    6. Appropriate follow-up period
+    7. Loss to follow-up less than 5%
+    8. Prospective calculation of study size
+    
+    **Items 9-12: Comparative Studies Only**
+    9. Adequate control group
+    10. Contemporary groups
+    11. Baseline equivalence of groups
+    12. Adequate statistical analyses
+    
+    #### 📚 Citation
+    ```
+    Slim K, Nini E, Forestier D, Kwiatkowski F, Panis Y, Chipponi J. 
+    Methodological index for non-randomized studies (MINORS): development 
+    and validation of a new instrument. ANZ J Surg. 2003;73:712-716.
+    ```
+    """)
+
 # Footer
 st.markdown("---")
 st.markdown("""
-<div style="text-align: center; color: #666; margin-top: 2rem;">
+<div class="footer">
 <p><strong>MINORS Assessment Tool</strong> | Developed by Muhammad Nabeel Saddique | Nibras Research Academy</p>
 <p><em>Citation: Slim K, et al. Methodological index for non-randomized studies (MINORS): development and validation of a new instrument. ANZ J Surg. 2003;73:712-716.</em></p>
+<p>King Edward Medical University, Lahore, Pakistan</p>
 </div>
 """, unsafe_allow_html=True)
 
 # Reset data option (for development/testing)
 if st.sidebar.button("🗑️ Clear All Data", type="secondary"):
-    st.session_state.studies_data = []
-    st.session_state.current_study = {}
-    st.sidebar.success("All data cleared!")
+    if st.sidebar.button("⚠️ Confirm Clear", type="secondary"):
+        st.session_state.studies_data = []
+        st.session_state.current_study = {}
+        st.sidebar.success("All data cleared!")
+
+# Version info
+st.sidebar.markdown("---")
+st.sidebar.markdown("**Version:** 1.0.0")
+st.sidebar.markdown("**Last Updated:** 2025")
